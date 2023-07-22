@@ -1,4 +1,4 @@
-const net = require('net');
+const socketIO = require('socket.io');
 
 const PORT = 3000; // Change this to your desired port number
 
@@ -8,11 +8,13 @@ const acceptedWebApps = [
   // Add other accepted web applications here
 ];
 
-const server = net.createServer((socket) => {
+const server = socketIO(PORT); // Use socketIO here
+
+server.on('connection', (socket) => {
   console.log('Reverse proxy server connected.');
 
   // Send the list of accepted web applications when a reverse proxy server connects
-  socket.write(JSON.stringify(acceptedWebApps));
+  socket.emit('data', JSON.stringify(acceptedWebApps));
 
   socket.on('data', (data) => {
     // Handle data received from the reverse proxy server if needed
@@ -21,7 +23,7 @@ const server = net.createServer((socket) => {
     console.log('Received data from reverse proxy:', message);
   });
 
-  socket.on('end', () => {
+  socket.on('disconnect', () => {
     console.log('Reverse proxy server disconnected.');
   });
 
@@ -30,6 +32,4 @@ const server = net.createServer((socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server started and listening on port ${PORT}`);
-});
+console.log(`Server started and listening on port ${PORT}`);
