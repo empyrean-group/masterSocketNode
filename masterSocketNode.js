@@ -3,8 +3,8 @@ const socketIO = require('socket.io');
 const PORT = 3000; // Change this to your desired port number
 
 const acceptedWebApps = [
-  { domain: "google.com", backend: "http://google.com" },
-  { domain: "test.com", backend: "http://2.2.2.2" },
+  { domain: "google.com", backends: ["http://google.com"] },
+  { domain: "test.com", backends: ["http://2.2.2.2"] },
   // Add other accepted web applications here
 ];
 
@@ -25,8 +25,8 @@ server.on('connection', (socket) => {
         throw new Error('Invalid data format received from reverse proxy. Expected an array.');
       }
       for (const app of message) {
-        if (!app.domain || !isValidDomain(app.domain) || !app.backend) {
-          throw new Error('Invalid data format received from reverse proxy. Each object should have "domain" and "backend" properties.');
+        if (!app.domain || !isValidDomain(app.domain) || !app.backends || !Array.isArray(app.backends)) {
+          throw new Error('Invalid data format received from reverse proxy. Each object should have "domain" and "backends" properties, where "backends" is an array of backend server URLs.');
         }
       }
       console.log('Received data from reverse proxy:', message);
