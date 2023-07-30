@@ -26,29 +26,46 @@ server.on('connection', (socket) => {
   console.log('Reverse proxy server connected.');
 
   // Send the list of accepted web applications when a reverse proxy server connects
-  socket.emit('data', acceptedWebApps);
+  socket.emit('data', JSON.stringify(acceptedWebApps));
+
+  let systemInfoReceived = false;
+  let systemInfoData = '';
 
   socket.on('data', (data) => {
     try {
       // Handle data received from the reverse proxy server if needed
-      const message = Array.isArray(data) ? data : data;
+      if (!systemInfoReceived) {
+        // Check if the data is already parsed JSON or a string
+        const newData = typeof data === 'object' ? data : JSON.parse(data);
+        systemInfoData += JSON.stringify(newData); // Add to the systemInfoData string
 
-      // Log the received message for debugging
-      console.log('Received message from reverse proxy:', message);
+        // Check if the systemInfoData contains the "systemInfo" property
+        const parsedData = JSON.parse(systemInfoData);
+        if (parsedData && parsedData.systemInfo) {
+          console.log('Received systemInfo from reverse proxy:', JSON.stringify(parsedData.systemInfo, null, 2));
+          // Process systemInfo data here if needed
+          systemInfoReceived = true;
+          return;
+        }
+      }
+
+      // Assuming the data is an array of accepted web applications
+      const parsedData = JSON.parse(data);
+      console.log('Received data from reverse proxy:', parsedData);
 
       // Add necessary validation and authentication for the received data
-      if (!Array.isArray(message)) {
+      if (!Array.isArray(parsedData)) {
         throw new Error('Invalid data format received from reverse proxy. Expected an array.');
       }
-      for (const app of message) {
+      for (const app of parsedData) {
         if (!app.domain || !isValidDomain(app.domain) || !app.backends || !Array.isArray(app.backends)) {
           throw new Error('Invalid data format received from reverse proxy. Each object should have "domain" and "backends" properties, where "backends" is an array of backend server URLs.');
         }
       }
-      console.log('Received data from reverse proxy:', message);
+      console.log('Parsed data from reverse proxy:', parsedData);
 
       // Update the accepted web applications list based on the received data
-      for (const app of message) {
+      for (const app of parsedData) {
         acceptedWebApps.push(app);
       }
     } catch (error) {
@@ -56,7 +73,6 @@ server.on('connection', (socket) => {
     }
   });
 
-  // Add an event listener for data from child socket nodes
   socket.on('childData', (data) => {
     try {
       // Assuming the data received contains the IP and connectionsPerSecond information
@@ -73,6 +89,8 @@ server.on('connection', (socket) => {
             console.error(`Error blocking IP ${ip} in Redis:`, err.message);
           } else {
             console.log(`Blocked IP ${ip} for ${BLOCK_EXPIRY} seconds.`);
+            // Broadcast the blocked IP to all child nodes
+            server.emit('blockedIP', JSON.stringify(ip));
           }
         });
       }
@@ -83,6 +101,10 @@ server.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('Reverse proxy server disconnected.');
+    // Optionally, you may want to gracefully shutdown the master node when the reverse proxy disconnects
+    server.close(() => {
+      console.log('Master socket node shut down gracefully.');
+    });
   });
 
   socket.on('error', (err) => {
@@ -90,4 +112,12 @@ server.on('connection', (socket) => {
   });
 });
 
-console.log(`Server started and listening on port ${PORT}`);
+console.log(`Master socket node started and listening on port ${PORT}`);
+
+// Clean up the Redis connection when the master node is stopped
+process.on('SIGINT', () => {
+  redisClient.quit(() => {
+    console.log('Redis connection closed.');
+    process.exit(0);
+  });
+});
