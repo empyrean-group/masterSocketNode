@@ -11,9 +11,10 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
+    "mongodb": "^5.7.0",
     "netcat": "^1.5.0",
     "redis": "^4.6.7",
-    "socket.io": "^4.7.1",
-    "socket.io-client": "^4.7.1"
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2"
   }
 }
